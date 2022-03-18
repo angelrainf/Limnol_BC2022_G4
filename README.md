@@ -1,5 +1,5 @@
 # Limnol_BC2022_G4
-Dataset availables for multivariate statistical part:
+Dataset availables for BC tutorial (multivariate statistics part):
 
 -Taxonomic table uploaded in data.Taxonomy.ASV.tab
 
