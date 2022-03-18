@@ -1,2 +1,6 @@
 # Limnol_BC2022_G4
-material for tutorial
+Dataset availables for multivariate statistical part:
+
+-Taxonomic table uploaded in data.Taxonomy.ASV.tab
+-Count table (reads) in data.counts.ASV.1.txt
+For more detail about it please refer to https://doi.org/10.3389/fmicb.2020.597653.
