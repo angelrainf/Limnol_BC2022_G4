@@ -1,0 +1,319 @@
+---
+title: "R-tutorial block course"
+author: "Angel Rain"
+date: "3/10/2022"
+output:
+  html_document:
+    toc: yes
+    toc_float: no
+  pdf_document:
+    toc: yes
+---
+# Introduction
+## Basic commands
+```{r }
+# Set a directory
+# setwd() #<- Put the address here
+# get current directory
+getwd()
+# Screen element in the workspace
+ls()
+# Remove element from the workspace
+## Some
+rm()
+## All
+rm(list=ls())
+```
+## Basic object
+Data can be stored in several ways depending of the complexity or the nature of the dataset.
+
+```{r }
+#Vector
+x=1:5 
+
+## Generate random numbers
+set.seed(1)
+y=rnorm(10,5,1)
+
+#Matrix
+M=matrix(1:50,ncol=5,nrow=10)
+M
+Mt=t(M)
+Mt
+#Data frames
+DF=data.frame(Experiment="Test1", # Experiment name as string 
+           Treatments=factor(rep(c("Substrate1","Substrate2"),each=15)), #Treatment description here 2 levels
+           Values=c(rnorm(15,4,1),rnorm(15,8,1))) # Theoretical response growth (mg L-1 h-1)
+
+## See the first rows
+head(DF)
+## For the last rows
+tail(DF)
+#Overview of the different columns
+summary(DF)
+
+#List
+List.01=list(x,y,M,Mt,DF)
+## Extract element from list
+List.01[[1]]
+List.01[[5]]
+List.01[[5]]$Treatments
+```
+
+# Data analysis
+Data analysis can be divided according the numbers of samples (ppt)
+
+## One sample analysis
+One-sample t-test/ is used to compare the mean of one sample to a known standard (or theoretical/hypothetical) average
+```{r,fig.align = 'center'}
+y=rnorm(35,mean=5)
+# Visualize data
+## Histogram
+par(mfrow=c(1,2))
+hist(y,12, ylim=c(0,10))
+abline(v=5,lty=2)
+boxplot(y)
+t.test(y) # by default test if mean is equal to 0 (P<<0.05)
+t.test(y, mu=5) # Here P>0.5, then mean is equal to 5
+
+```
+## Two samples analysis
+```{r, fig.align = 'center'}
+## Visualize data
+#install.packages("ggplot2")
+#install.packages("cowplot")
+
+library(ggplot2)
+library(cowplot)
+
+# Simple boxplots with different graphical options
+p1=ggplot(DF,aes(x=Treatments, y=Values))+geom_boxplot()
+# Simple boxplots with data points
+p2=ggplot(DF,aes(x=Treatments, y=Values))+geom_boxplot(outlier.size = -1)+geom_jitter(width = 0.2)
+# Simple boxplots colored
+p3=ggplot(DF,aes(x=Treatments, y=Values, fill=Treatments))+geom_boxplot(outlier.size = -1)+ geom_jitter(width = 0.2)+theme(legend.position = "none")
+# Simple boxplots with colored points
+p4=ggplot(DF,aes(x=Treatments, y=Values, colour=Treatments))+geom_boxplot(outlier.size = -1)+ geom_jitter(width = 0.2)+theme(legend.position = "none")
+plot_grid(p1,p2,p3,p4,labels = "AUTO",align = "v", axis = "l")
+
+# t-test two samples
+t.test(DF$Values[DF$Treatments=="Substrate1"], DF$Values[DF$Treatments=="Substrate2"],var.equal = T) #Default setup: Only diff
+
+t.test(DF$Values[DF$Treatments=="Substrate1"], DF$Values[DF$Treatments=="Substrate2"],var.equal = T,alternative ="less")
+#Alternative hypothesis sample_a<sample_b or differences <0
+
+t.test(DF$Values[DF$Treatments=="Substrate1"], DF$Values[DF$Treatments=="Substrate2"],var.equal = T, alternative ="greater")
+#Alternative hypothesis sample_a>sample_b or differences >0
+
+
+```
+
+## More than two samples
+### ANOVA one-way
+One way anovas considered continuous variables in discrete categories. For example, growth rates in different temperatures, respiration with different substrate as resources
+
+```{r fig.align='center', fig.dim=c(5, 4), message=TRUE, warning=FALSE}
+#Generate testing data frames
+set.seed(100)
+DF=data.frame(Experiment=as.character("Test1"), # Experiment name
+           Treatments=factor(rep(c("Substrate1","Substrate2","Substrate3"),each=15)), #Treatment description here 2 levels
+           Values=c(rnorm(15,4,1),rnorm(15,8,1),rnorm(15,8.5,1))) # Theoretical response growth (mg L-1 h-1)
+# Visualizing using ggplot2 data set
+ggplot(DF,aes(x=Treatments, y=Values, colour=Treatments))+ geom_boxplot(outlier.size = -1)+ geom_jitter(width = 0.2)+ theme(legend.position = "none")
+```
+
+### Statistical analysis
+Loading packages for analysis
+
+```{r, message=FALSE, warning=FALSE}
+library(dplyr)
+library(rstatix)
+library(knitr)
+library(kableExtra)
+library(ggpubr)
+```
+
+### Assumptions and ANOVA
+```{r message=FALSE}
+#Normality of dataset
+tapply(DF$Value,DF$Treatment,shapiro.test)
+
+#Homogeneity of variance for each comparison (Treatment)
+bartlett.test(Values~Treatments,data=DF)
+
+#ANOVA one-way
+anova1=DF%>%anova_test(Values ~ Treatments)
+anova1
+res.tukey=DF%>%tukey_hsd(Values ~ Treatments)
+res.tukey <- res.tukey %>% add_xy_position(x = "Treatments")
+
+```
+
+### Visualization: box plots with p-values
+
+```{r fig.align='center', fig.dim=c(5, 5),}
+ggboxplot(DF, x = "Treatments", y = "Values",color="Treatments",add = "jitter") +
+  stat_pvalue_manual(res.tukey, hide.ns = TRUE) +
+  labs(subtitle = get_test_label(anova1, detailed = TRUE))
+```
+
+## ANOVA two-ways
+
+```{r, fig.align = 'center' }
+#Generate testing data frames
+DF=data.frame(Experiment=as.character("Experiment01"), # Experiment name
+           Treatments=factor(rep(c("Substrate1","Substrate2"),each=20)), #Treatment description here 2 levels
+           Sites=factor(rep(c("River","Lake"),each=10)),
+           Values=c(rnorm(10,15,1.1),rnorm(10,11.5,1.5),
+                    rnorm(10,16,1),rnorm(10,11,1.2))) # Theoretical response growth (mg L-1 h-1)
+
+# Visualizing data set
+bxp <-ggboxplot(DF, x= "Sites", y = "Values",add = "jitter",
+  color = "Treatments", palette = "jco")
+bxp
+```
+
+## Assumptions and ANOVA
+```{r message=FALSE}
+#Normality of dataset
+tapply(DF$Value,interaction(DF$Treatment,DF$Sites),shapiro.test)
+
+#Homogeneity of variance for each comparison (Treatment)
+bartlett.test (Values~interaction(Treatments,Sites),data=DF)
+
+#ANOVA one-way
+anova2=DF%>%anova_test(Values ~ Treatments*Sites)
+anova2
+```
+From the results above, What we can say about the main effects? Where are the differences among groups?
+
+```{r}
+DF$index=paste0(DF$Treatments,DF$Sites)
+res.tukey=DF%>%
+  group_by(Sites)%>%
+tukey_hsd(Values ~ Treatments)
+#Add position for plots
+
+```
+# Correlations
+```{r, fig.align = 'center' }
+DF2=data.frame(int.explorer=seq(90,25,length.out=26)+rnorm(26,1,2),
+               USA.murders=seq(14000,17000,length.out=26)+rnorm(26,1000,200),
+               year=2020:1995)
+ggplot(data=DF2, aes(int.explorer,USA.murders))+
+  geom_point()+geom_smooth(method="lm",se=F)+geom_text(aes(label=year))
+
+#Results correlations by Species
+cor.test(~int.explorer+USA.murders,data=DF2,method = "pearson")
+```
+# Multivariate Statistic
+In the nature we usually observed many populations living together in a limited space with limited resources. For many years researcher have studied what are the rules governing, community composition changes and 
+
+```{r}
+rm(list=ls())
+library(reshape2)
+library(ggplot2)
+library(gridExtra)
+library(vegan)
+library(RColorBrewer)
+library(phyloseq)
+
+# Change directory
+setwd("/Users/angel/Dropbox/Postdoc/Courses/BlockCourse2022/Example_dataset")
+
+# Load datasets
+asv <- read.table('dada.counts.ASV.1.txt', sep="\t" ,header = TRUE,row.names = 1) #Load raw count table
+tax <- read.table('dada.Taxonomy.ASV.tab', sep="\t" ,header = TRUE)
+
+#Rarefaction of samples
+raremax <- min(rowSums(asv))
+Srare <- rrarefy(asv, raremax)
+asv=t(Srare)
+asv=prop.table(asv,2)
+asv<- asv*100 #multiply by 100 to get % data
+asv=data.frame(asv)
+ASV=rownames(asv)
+asv=cbind(ASV,asv)
+
+
+# Combine relative count-table with taxonomic information
+df1<-(data.frame(tax, asv))
+df1=df1[,c("Kingdom",  "Phylum" ,  "Class" ,   "Order"  ,  "Family"  ,"Genus" ,"ASV", "SOLA1","SOLA2", "SOLA3","Sea1","Sea2","Sea3","SM1","SM2", "SM3","SS1","SS2","SS3")]
+```
+
+
+```{r}
+#aggregate counts by order
+df2<-aggregate(cbind(Sea1,Sea2,Sea3,
+                     SM1,SM2,SM3,
+                     SOLA1,SOLA2,SOLA3,
+                     SS1,SS2,SS3) ~ Order,
+               data = df1, sum, na.rm = TRUE)
+
+order <- df2[,1] #vector with orders
+rownames(df2) <- df2[,1] #rownames
+df2<-df2[,-1] #remove column with orders and kepp only abundance data
+colSums(df2) #test colSums to see if values close to 1 are reached
+
+```
+```{r}
+agg=df2
+#change format of agg to samples by column
+agg<-as.data.frame(agg)
+rownames(agg) <- order #add order information
+agg$Sum.agg<-rowSums(agg) # add column with counts across treatments for all orders
+
+#test how many of the orders (ranked by abundance) are meaningful to not include to many orders but reach values possibly close to 1
+colSums(agg[with(agg, order(-Sum.agg)),][1:10,]) 
+
+#select the most abundant orders (top 10)
+agg10<-agg[with(agg, order(-Sum.agg)),][1:10,1:12]
+agg10$order <-rownames(agg10)
+```
+
+```{r, fig.align = 'center' }
+#convert to long format
+agg10.long<-melt(agg10, id.vars='order', variable.name = "treat")
+
+positions <- c("SW-DOM","SW-DOM","SW-DOM",
+               'S-DOM',"S-DOM","S-DOM",
+               "F-SEA","F-SEA","F-SEA",
+               "Source","Source","Source")
+col <- rep(c("grey50"), 12)
+cbp1 <- c("#999999","#FFDB6D", "#E69F00", "#56B4E9", "#009E73",
+         "#F0E442", "#0072B2", "#D55E00", "#CC79A7","#293352")
+colourCount = length(unique(agg10.long$order))
+getPalette = colorRampPalette(brewer.pal(10, "Paired"))
+
+plot0<-ggplot(agg10.long, aes(x = treat, y = value, fill = order)) +
+  geom_bar(stat = "identity")+scale_fill_manual(values = cbp1)+
+  scale_x_discrete(limits=c("SM1","SM2","SM3","SS1","SS2","SS3", "Sea1","Sea2","Sea3","SOLA1","SOLA2","SOLA3"), labels =positions)+labs(x=NULL, y=NULL)+
+  theme_bw()+  theme(axis.text.y =  element_text(face="bold",colour=col,size=8,angle=0,hjust = 1))
+
+plot0
+```
+## Principal coordinate analysis (PCOA)
+Multidimentional scaling have been used to represent in a 2 or 3D space the multivariate changes in community composition. Imagine every species in a population is a single variable, then multimentional scaling allow to reduce dimesion to the most important ones. This reduction is based in the weigth of the variance explained bu the sum of the species
+```{r, fig.align = 'center' ,fig.dim=c(5,4)}
+########################## PCoA
+ps.rel = otu_table(df1[,8:19], taxa_are_rows = TRUE)
+#ggplot
+#all samples
+ord.pcoa<- ordinate(ps.rel, method="PCoA", distance="bray")
+
+df.ord.pcoa=data.frame(pco1=ord.pcoa$vectors[,1],pco2=ord.pcoa$vectors[,2],
+                            DOM=c("Ini","Ini","Ini",
+                                  "SW","SW","SW",
+                                  "DOM2","DOM2","DOM2",
+                                  "DOM1","DOM1","DOM1"))
+# Ordering factors
+df.ord.pcoa$DOM=ordered(df.ord.pcoa$DOM,levels=c("DOM1","DOM2","SW", "Ini"))
+
+p2=ggplot(df.ord.pcoa,aes(x=pco1, y=pco2,colour=DOM))+
+  geom_point(size=3)+
+    labs(x=paste0("PCOA1 [",round(ord.pcoa$values[2][1,]*100,0),"%]") ,
+       y=paste0("PCOA2 [",round(ord.pcoa$values[2][2,]*100,0),"%]"))+
+  theme_bw()
+p2
+```
+
