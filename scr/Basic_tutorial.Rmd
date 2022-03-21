@@ -197,19 +197,26 @@ tukey_hsd(Values ~ Treatments)
 ```
 # Correlations
 ```{r, fig.align = 'center' }
-DF2=data.frame(int.explorer=seq(90,25,length.out=26)+rnorm(26,1,2),
-               USA.murders=seq(14000,17000,length.out=26)+rnorm(26,1000,200),
+DF2=data.frame(int.explorer=seq(25,95,length.out=26)+rnorm(26,1,2),
+               USA.murders=seq(10000,20000,length.out=26)+rnorm(26,1000,200),
                year=2020:1995)
-ggplot(data=DF2, aes(int.explorer,USA.murders))+
+#Time series
+ggplot(DF2)+geom_bar(aes(year,USA.murders),stat="identity",fill="blue")+
+    geom_line(aes(x=year, y=200*int.explorer),stat="identity",color="red",size=2)+
+    labs(title= "Murders in USA vs use of Internet Explorer", x="Year",y="Murders per year")+
+    scale_y_continuous(sec.axis=sec_axis(~.*0.02,name="Percentage Use Internet Explorer"))
+
+# Correlation between variables
+ggplot(data=DF2, aes(int.explorer,USA.murders))+labs(x="Internet explorer",y="USA murders")+
   geom_point()+geom_smooth(method="lm",se=F)+geom_text(aes(label=year))
 
 #Results correlations by Species
 cor.test(~int.explorer+USA.murders,data=DF2,method = "pearson")
 ```
 # Multivariate Statistic
-In the nature we usually observed many populations living together in a limited space with limited resources. For many years researcher have studied what are the rules governing, community composition changes and 
+In the nature we usually observed many populations living together in a limited space with limited resources. For many years researcher have studied what are the rules governing, community composition changes
 
-```{r}
+```{r message=FALSE, warning=FALSE}
 rm(list=ls())
 library(reshape2)
 library(ggplot2)
@@ -218,12 +225,13 @@ library(vegan)
 library(RColorBrewer)
 library(phyloseq)
 
-# Change directory
-setwd("/Users/angel/Dropbox/Postdoc/Courses/BlockCourse2022/Example_dataset")
+# Colorblind palette
+cbp1 <- c("#999999","#FFDB6D", "#E69F00", "#56B4E9", "#009E73",
+         "#F0E442", "#0072B2", "#D55E00", "#CC79A7","#293352")
 
 # Load datasets
-asv <- read.table('dada.counts.ASV.1.txt', sep="\t" ,header = TRUE,row.names = 1) #Load raw count table
-tax <- read.table('dada.Taxonomy.ASV.tab', sep="\t" ,header = TRUE)
+asv <- read.table('../data/dada.counts.ASV.1.txt', sep="\t" ,header = TRUE,row.names = 1) #Load raw count table
+tax <- read.table('../data/dada.Taxonomy.ASV.tab', sep="\t" ,header = TRUE)
 
 #Rarefaction of samples
 raremax <- min(rowSums(asv))
@@ -251,9 +259,9 @@ df2<-aggregate(cbind(Sea1,Sea2,Sea3,
                data = df1, sum, na.rm = TRUE)
 
 order <- df2[,1] #vector with orders
-rownames(df2) <- df2[,1] #rownames
-df2<-df2[,-1] #remove column with orders and kepp only abundance data
-colSums(df2) #test colSums to see if values close to 1 are reached
+rownames(df2) <- df2[,1] #row names
+df2<-df2[,-1] #remove column with orders and keep only abundance data
+colSums(df2) #test the sum of columns to see if values close to 1 are reached
 
 ```
 ```{r}
@@ -271,7 +279,7 @@ agg10<-agg[with(agg, order(-Sum.agg)),][1:10,1:12]
 agg10$order <-rownames(agg10)
 ```
 
-```{r, fig.align = 'center' }
+```{r, fig.align = 'center',fig.dim=c(6,5)}
 #convert to long format
 agg10.long<-melt(agg10, id.vars='order', variable.name = "treat")
 
@@ -279,41 +287,51 @@ positions <- c("SW-DOM","SW-DOM","SW-DOM",
                'S-DOM',"S-DOM","S-DOM",
                "F-SEA","F-SEA","F-SEA",
                "Source","Source","Source")
-col <- rep(c("grey50"), 12)
-cbp1 <- c("#999999","#FFDB6D", "#E69F00", "#56B4E9", "#009E73",
-         "#F0E442", "#0072B2", "#D55E00", "#CC79A7","#293352")
-colourCount = length(unique(agg10.long$order))
+
 getPalette = colorRampPalette(brewer.pal(10, "Paired"))
 
 plot0<-ggplot(agg10.long, aes(x = treat, y = value, fill = order)) +
   geom_bar(stat = "identity")+scale_fill_manual(values = cbp1)+
-  scale_x_discrete(limits=c("SM1","SM2","SM3","SS1","SS2","SS3", "Sea1","Sea2","Sea3","SOLA1","SOLA2","SOLA3"), labels =positions)+labs(x=NULL, y=NULL)+
-  theme_bw()+  theme(axis.text.y =  element_text(face="bold",colour=col,size=8,angle=0,hjust = 1))
+  scale_x_discrete(limits=c("SM1","SM2","SM3","SS1","SS2","SS3", "Sea1","Sea2","Sea3","SOLA1","SOLA2","SOLA3"),
+                   labels =positions)+labs(y="Relative abundance", x=NULL)+
+  theme_bw()+  theme(axis.text.y =element_text(face="bold",size=10,angle=0,hjust = 1)) +coord_flip()
 
 plot0
+
 ```
+
 ## Principal coordinate analysis (PCOA)
-Multidimentional scaling have been used to represent in a 2 or 3D space the multivariate changes in community composition. Imagine every species in a population is a single variable, then multimentional scaling allow to reduce dimesion to the most important ones. This reduction is based in the weigth of the variance explained bu the sum of the species
-```{r, fig.align = 'center' ,fig.dim=c(5,4)}
+Multidimensional scaling have been used to represent in a 2 or 3D space the multivariate changes in community composition. Imagine every species in a population is a single variable, then multidimensional scaling allow to reduce dimensions to the most important ones. This reduction is based in the weight of the variance explained by the relative abundance of the species.
+
+```{r, fig.align = 'center' ,fig.dim=c(10,4)}
 ########################## PCoA
 ps.rel = otu_table(df1[,8:19], taxa_are_rows = TRUE)
 #ggplot
 #all samples
 ord.pcoa<- ordinate(ps.rel, method="PCoA", distance="bray")
+ord.nmds<- ordinate(ps.rel, method="NMDS", distance="bray",autotransform=T)
 
 df.ord.pcoa=data.frame(pco1=ord.pcoa$vectors[,1],pco2=ord.pcoa$vectors[,2],
-                            DOM=c("Ini","Ini","Ini",
+                            DOM=c("Source","Source","Source",
                                   "SW","SW","SW",
                                   "DOM2","DOM2","DOM2",
                                   "DOM1","DOM1","DOM1"))
+df.ord.nmds<-data.frame(pco1=ord.nmds$points[,1],pco2=ord.nmds$points[,2])
+df.ord.nmds$DOM=df.ord.pcoa$DOM
 # Ordering factors
-df.ord.pcoa$DOM=ordered(df.ord.pcoa$DOM,levels=c("DOM1","DOM2","SW", "Ini"))
+df.ord.pcoa$DOM=ordered(df.ord.pcoa$DOM,levels=c("DOM1","DOM2","SW", "Source"))
+df.ord.nmds$DOM=ordered(df.ord.pcoa$DOM,levels=c("DOM1","DOM2","SW", "Source"))
 
 p2=ggplot(df.ord.pcoa,aes(x=pco1, y=pco2,colour=DOM))+
   geom_point(size=3)+
-    labs(x=paste0("PCOA1 [",round(ord.pcoa$values[2][1,]*100,0),"%]") ,
+    labs(title="Principal cordinate analysis (PCoA)",x=paste0("PCOA1 [",round(ord.pcoa$values[2][1,]*100,0),"%]") ,
        y=paste0("PCOA2 [",round(ord.pcoa$values[2][2,]*100,0),"%]"))+
   theme_bw()
-p2
+
+p3=ggplot(df.ord.nmds,aes(x=pco1, y=pco2,colour=DOM))+
+  geom_point(size=3)+labs(title="Non metric multidimensional scaling (NMDS)",x="Dim1",y="Dim2")+
+  theme_bw()
+
+plot_grid(p2,p3)
 ```
 
