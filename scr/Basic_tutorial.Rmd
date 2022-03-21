@@ -216,6 +216,66 @@ cor.test(~int.explorer+USA.murders,data=DF2,method = "pearson")
 # Multivariate Statistic
 In the nature we usually observed many populations living together in a limited space with limited resources. For many years researcher have studied what are the rules governing, community composition changes
 
+# Principal component analysis (PCA)
+
+```{r}
+
+rm(list=ls())
+library(corrplot)
+library(readxl)
+D<-read_excel("../data/Base Datos CDOM 2018.xls",sheet = "Data_completa_sub_pca")
+
+D<-data.frame(D)
+M <- cor(na.omit(D[,12:17]),method="pearson")
+corrplot(M, method = "circle",type = "lower")
+
+symnum(clS <- cor(na.omit(D[,12:17]),method='pearson'))
+##############################################################
+naD<-na.omit(D)
+local<-naD[,1]
+
+pc1<-princomp(naD[,12:17],cor=T)
+## Similar, but different:
+## The standard deviations differ by a factor of sqrt(49/50)
+
+var100<-pc1$sd^2/sum(pc1$sd^2)*100
+varacum<-cumsum(var100)
+
+barplot(var100,ylim=c(0,110),ylab="% de Varianza")
+points(varacum,col="red",type="p",pch=19)
+lines(varacum,col="red",type="l",pch=19)
+
+
+summary(pc1)
+loadings(pc1)  # note that blank entries are small but not zero
+biplot(pc1)
+pc1$loadings
+pc1$scores
+pc1$sdev
+pc1$center
+pc1$data
+```
+# Beautiful PCA
+```{r message=FALSE, warning=FALSE}
+
+library(devtools)
+install_github("vqv/ggbiplot")
+
+library(ggbiplot)
+
+g <- ggbiplot(pc1, obs.scale = 1, var.scale =1, size=5,
+              groups = naD$Region,ellipse=T)
+g <- g + scale_color_discrete(name = '')#+ xlim(-4.5,4.5)+ ylim(-4.5,4.5)
+g <- g + theme_bw()+theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank())
+g <- g+theme(legend.direction = "horizontal",legend.position = "top")
+g <- g+theme(axis.text=element_text(size=12),axis.title=element_text(size=14,face="bold"))
+g <-g+geom_point(aes(shape=factor(naD$Layer)), size = 3)
+g <-g+geom_point(aes(colour=factor(naD$Region)))
+g <-g+geom_vline(xintercept = 0,linetype="dashed")+
+geom_hline(yintercept = 0,linetype="dashed")
+g
+```
+# Biological data
 ```{r message=FALSE, warning=FALSE}
 rm(list=ls())
 library(reshape2)
