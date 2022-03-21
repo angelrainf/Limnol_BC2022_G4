@@ -1,6 +1,6 @@
 ---
-title: "R-tutorial block course"
-author: "Angel Rain"
+title: " Block course: R-tutorial for ecologists"
+author: "Angel Rain & Marie Dannenmann"
 date: "3/10/2022"
 output:
   html_document:
